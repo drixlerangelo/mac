@@ -5,6 +5,7 @@ import axios from 'axios';
 type Message = {
     role: 'system'|'user'|'assistant',
     content: string,
+    audio?: string,
 };
 
 type Data = {
@@ -27,7 +28,10 @@ const appData = ref({
     audioConversation: [],
 } as Data);
 
-const utterResponse = async () => {
+const utterResponse = async (message: Message) => {
+    appData.value.assistantResponse = message.content;
+    console.log(`assistant: ${appData.value.assistantResponse}`);
+
     const urlParams = new URLSearchParams();
     urlParams.append('optimize_streaming_latency', '0');
     urlParams.append('output_format', 'mp3_44100_128');
@@ -56,7 +60,10 @@ const utterResponse = async () => {
             responseType: 'blob',
         }
     ).then(({ data }) => {
-        const audio = new Audio(URL.createObjectURL(data));
+        const audioSrc: string = URL.createObjectURL(data);
+        const audio = new Audio(audioSrc);
+        message.audio = audioSrc;
+        appData.value.conversation.push(message);
         audio.play();
     });
 };
@@ -72,7 +79,10 @@ const converseBot = () => {
         import.meta.env.VITE_OPENAI_URL + '/chat/completions',
         {
             model: 'gpt-3.5-turbo',
-            messages: appData.value.conversation,
+            messages: appData.value.conversation.map((message: Message) => {
+                let {audio, ...rest} = message;
+                return rest;
+            }),
             stream: false,
         },
         {
@@ -83,10 +93,7 @@ const converseBot = () => {
         }
     ).then(({ data }) => {
         const message: {role: 'assistant', content: string} = data.choices[0].message;
-        appData.value.conversation.push(message);
-        appData.value.assistantResponse = message.content;
-        console.log(`assistant: ${appData.value.assistantResponse}`);
-        utterResponse();
+        utterResponse(message);
     });
 };
 
@@ -147,37 +154,62 @@ const stopRecording = () => {
 </script>
 
 <template>
-    <div id="app">
-        <button @click="startRecording" :disabled="appData.isRecording">Start Recording</button>
-        <button @click="stopRecording" :disabled="!appData.isRecording">Stop Recording</button>
+    <div class="dark:bg-indigo-950 h-screen flex flex-col justify-between items-center">
+        <div></div>
+
+        <div class="max-w-3xl w-full p-4 dark:bg-violet-700 rounded-lg shadow-md">
+            <div class="mb-4">
+            <div class="h-96 p-5 bg-indigo-950 overflow-auto">
+                <div class="flex flex-col">
+
+                    <div v-for="(message, index) in appData.conversation" :key="index">
+                        <div v-if="message.role === 'user'" class="flex items-start justify-start pb-5">
+                            <div class="h-16 w-16 bg-purple-500 rounded-full mr-2 px-4 py-5">YOU</div>
+
+                            <div class="max-w-4/6 bg-purple-700 p-3 rounded-lg">
+                                <p class="text-sm text-purple-50">
+                                    {{ message.content }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div v-else-if="message.role === 'assistant'" class="flex items-start justify-end pb-5">
+                            <div class="w-4/6 bg-purple-700 p-3 rounded-lg">
+                                <p class="text-sm text-purple-50">
+                                    {{ message.content }}
+                                </p>
+                                <br>
+                                <audio controls class="w-3/6 h-6" :src="message.audio"></audio>
+                            </div>
+
+                            <div class="h-16 w-16 bg-purple-500 rounded-full ml-2 px-4 py-5">MAC</div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <div>
+                <div class="h-16 bg-purple-950 p-2 text-center">
+                    <button
+                        type="button"
+                        class="bg-red-950 p-3 rounded-full"
+                        @click="startRecording"
+                        :hidden="appData.isRecording">
+                        START RECORDING
+                    </button>
+
+                    <button
+                        type="button"
+                        class="bg-zinc-200 p-3 rounded-full"
+                        @click="stopRecording"
+                        :hidden="!appData.isRecording">
+                        STOP RECORDING
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div>MAC - Mini AI Chatbot. A demo by drixlerangelo.</div>
     </div>
 </template>
-
-<style scoped>
-header {
-    line-height: 1.5;
-}
-
-.logo {
-    display: block;
-    margin: 0 auto 2rem;
-}
-
-@media (min-width: 1024px) {
-    header {
-        display: flex;
-        place-items: center;
-        padding-right: calc(var(--section-gap) / 2);
-    }
-
-    .logo {
-        margin: 0 2rem 0 0;
-    }
-
-    header .wrapper {
-        display: flex;
-        place-items: flex-start;
-        flex-wrap: wrap;
-    }
-}
-</style>
