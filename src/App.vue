@@ -154,10 +154,10 @@ const stopRecording = () => {
 </script>
 
 <template>
-    <div class="dark:bg-indigo-950 h-screen flex flex-col justify-between items-center">
+    <div class="bg-indigo-950 h-screen flex flex-col justify-between items-center">
         <div></div>
 
-        <div class="max-w-3xl w-full p-4 dark:bg-violet-700 rounded-lg shadow-md">
+        <div class="max-w-3xl w-full p-4 bg-violet-700 rounded-lg shadow-md">
             <div class="mb-4">
             <div class="h-96 p-5 bg-indigo-950 overflow-auto">
                 <div class="flex flex-col">
