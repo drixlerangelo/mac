@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const OPENAI_KEY = prompt('Enter your OpenAI API Key');
+
 import { ref } from 'vue';
 import axios from 'axios';
 
@@ -16,6 +18,7 @@ type Data = {
     convertedSpeech: string,
     assistantResponse: string,
     audioConversation: Blob[],
+    userText: string,
 }
 
 const appData = ref({
@@ -26,6 +29,7 @@ const appData = ref({
     convertedSpeech: '',
     assistantResponse: '',
     audioConversation: [],
+    userText: '',
 } as Data);
 
 const utterResponse = async (message: Message) => {
@@ -65,6 +69,11 @@ const utterResponse = async (message: Message) => {
         message.audio = audioSrc;
         appData.value.conversation.push(message);
         audio.play();
+    }).catch(({ response }: { response: Response }) => {
+        if (response.status === 401) {
+            message.audio = '';
+            appData.value.conversation.push(message);
+        }
     });
 };
 
@@ -87,7 +96,7 @@ const converseBot = () => {
         },
         {
             headers: {
-                Authorization: 'Bearer ' + import.meta.env.VITE_OPENAI_KEY,
+                Authorization: 'Bearer ' + OPENAI_KEY,
                 Accept: 'application/json'
             }
         }
@@ -112,7 +121,7 @@ const convertToText = () => {
         formData,
         {
             headers: {
-                Authorization: 'Bearer ' + import.meta.env.VITE_OPENAI_KEY,
+                Authorization: 'Bearer ' + OPENAI_KEY,
                 Accept: 'application/json'
             }
         }
@@ -151,13 +160,21 @@ const stopRecording = () => {
         appData.value.isRecording = false;
     }
 };
+
+const passText = (event: KeyboardEvent) => {
+    if (event.code === 'Enter') {
+        appData.value.convertedSpeech = appData.value.userText;
+        appData.value.userText = '';
+        converseBot();
+    }
+}
 </script>
 
 <template>
     <div class="bg-indigo-950 h-screen flex flex-col justify-between items-center">
         <div></div>
 
-        <div class="max-w-3xl w-full p-4 bg-violet-700 rounded-lg shadow-md">
+        <div v-if="OPENAI_KEY" class="max-w-3xl w-full p-4 bg-violet-700 rounded-lg shadow-md">
             <div class="mb-4">
             <div class="h-96 p-5 bg-indigo-950 overflow-auto">
                 <div class="flex flex-col">
@@ -179,7 +196,7 @@ const stopRecording = () => {
                                     {{ message.content }}
                                 </p>
                                 <br>
-                                <audio controls class="w-3/6 h-6" :src="message.audio"></audio>
+                                <audio v-if="message.audio !== ''" controls class="w-3/6 h-6" :src="message.audio"></audio>
                             </div>
 
                             <div class="h-16 w-16 bg-purple-500 rounded-full ml-2 px-4 py-5">MAC</div>
@@ -190,13 +207,18 @@ const stopRecording = () => {
             </div>
             </div>
 
-            <div>
-                <div class="h-16 bg-purple-950 p-2 text-center">
+            <div class="flex flex-row">
+                <textarea class="basis-3/4"
+                    v-model="appData.userText"
+                    rows="1"
+                    @keyup="passText" />
+
+                <div class="basis-1/4 h-16 bg-purple-950 p-2 text-center">
                     <button
                         type="button"
                         class="bg-red-950 p-3 rounded-full"
                         @click="startRecording"
-                        :hidden="appData.isRecording">
+                        :hidden="appData.isRecording || appData.userText.length > 0">
                         START RECORDING
                     </button>
 
@@ -209,6 +231,10 @@ const stopRecording = () => {
                     </button>
                 </div>
             </div>
+        </div>
+
+        <div v-else class="max-w-3xl w-full p-4 bg-violet-700 rounded-lg shadow-md">
+            <h1 class="text-center">Sorry, you won't be able to use the tool.</h1>
         </div>
         <div>MAC - Mini AI Chatbot. A demo by drixlerangelo.</div>
     </div>
